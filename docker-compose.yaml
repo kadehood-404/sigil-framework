@@ -1,0 +1,13 @@
+version: '3.8'
+
+services:
+  sigil-proxy:
+    build: .
+    container_name: sigil-container
+    ports:
+      - "11435:11435"
+    environment:
+      - OLLAMA_URL=http://host.docker.internal:11434
+    extra_hosts:
+      - "host.docker.internal:host-gateway"
+    restart: unless-stopped
