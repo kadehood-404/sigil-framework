@@ -1,34 +1,123 @@
-<script>
-    async function runRealProxyScan() {
-        const input = document.getElementById('demoInput').value;
-        const log = document.getElementById('terminalLog');
-        
-        if (!input.trim()) return;
-
-        log.innerHTML = `<span style="color: #aaa;">[SYSTEM] Transmitting payload to live SiGiL Proxy on port 11435...</span>`;
-
-        try {
-            const response = await fetch('http://localhost:11435/api/demo', {
-                method: 'POST',
-                headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({ prompt: input })
-            });
-
-            const data = await response.json();
-
-            if (data.action === "BLOCK") {
-                log.innerHTML = `[TIME] ${data.timestamp} | Latency: ${data.latency_ms}ms<br>` +
-                                `[RAW PROMPT] "${data.Prompt}"<br>` +
-                                `<span style="color: var(--accent);">[ALERT] Risk Score: ${data.risk_score} — ${data.reason}</span><br>` +
-                                `<span style="color: var(--accent);">[BLOCK] Status 403 Forbidden — Payload dropped at network perimeter.</span>`;
-            } else {
-                log.innerHTML = `[TIME] ${data.timestamp} | Latency: ${data.latency_ms}ms<br>` +
-                                `[RAW PROMPT] "${data.Prompt}"<br>` +
-                                `<span style="color: #00f0ff;">[AUDIT] Risk Score: ${data.risk_score} — ${data.reason}</span><br>` +
-                                `<span style="color: #00ff66;">[PROXY] Status 200 OK — Forwarded to local inference cluster.</span>`;
-            }
-        } catch (err) {
-            log.innerHTML = `<span style="color: var(--accent);">[ERROR] Could not connect to live proxy instance at port 11435. Ensure container is running.</span>`;
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>SiGiL Enterprise — LLM Security Proxy</title>
+    <style>
+        :root {
+            --bg: #0a0a0a;
+            --surface: #111111;
+            --border: #f0f0f0;
+            --accent: #ff0055;
+            --cyan: #00f0ff;
+            --text: #f0f0f0;
+            --muted: #888888;
         }
-    }
-</script>
+        body {
+            background-color: var(--bg);
+            color: var(--text);
+            font-family: 'Courier New', Courier, monospace;
+            margin: 0;
+            padding: 0;
+            line-height: 1.5;
+        }
+        header {
+            border-bottom: 2px solid var(--border);
+            padding: 2rem;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            background: var(--surface);
+        }
+        .logo {
+            font-size: 1.5rem;
+            font-weight: bold;
+            color: var(--accent);
+            letter-spacing: 2px;
+            text-transform: uppercase;
+        }
+        .hero {
+            max-width: 900px;
+            margin: 4rem auto;
+            padding: 0 2rem;
+            text-align: center;
+        }
+        .hero h1 {
+            font-size: 3rem;
+            text-transform: uppercase;
+            letter-spacing: 3px;
+            margin-bottom: 1rem;
+            color: var(--border);
+        }
+        .hero h1 span {
+            color: var(--accent);
+        }
+        .hero p {
+            color: var(--muted);
+            font-size: 1.1rem;
+            margin-bottom: 2.5rem;
+        }
+        .waitlist-section {
+            max-width: 600px;
+            margin: 4rem auto;
+            padding: 3rem 2rem;
+            border: 2px solid var(--border);
+            background: var(--surface);
+            box-shadow: 10px 10px 0px var(--accent);
+            text-align: center;
+        }
+        .waitlist-section h2 {
+            text-transform: uppercase;
+            color: var(--accent);
+            margin-top: 0;
+            letter-spacing: 2px;
+        }
+        input[type="email"] {
+            width: 100%;
+            padding: 14px;
+            background: #000;
+            border: 1px solid var(--border);
+            color: var(--text);
+            font-family: inherit;
+            margin: 1.5rem 0;
+            box-sizing: border-box;
+            font-size: 1rem;
+        }
+        button.submit-btn {
+            width: 100%;
+            padding: 14px;
+            background: var(--accent);
+            color: #000;
+            border: none;
+            font-weight: bold;
+            font-family: inherit;
+            text-transform: uppercase;
+            cursor: pointer;
+            letter-spacing: 2px;
+            font-size: 1rem;
+        }
+        button.submit-btn:hover {
+            background: var(--border);
+        }
+    </style>
+</head>
+<body>
+    <header>
+        <div class="logo">SiGiL // Enterprise</div>
+        <div style="color: var(--muted); font-size: 0.9rem;">SEC-PRX-v1.0</div>
+    </header>
+    <div class="hero">
+        <h1>Secure the Perimeter. <span>Govern the Model.</span></h1>
+        <p>Industrial-grade LLM security proxy designed to intercept and audit inference pipelines.</p>
+    </div>
+    <div class="waitlist-section">
+        <h2>Request Access</h2>
+        <p style="color: var(--muted); font-size: 0.9rem;">Submit your operational email for priority access.</p>
+        <form action="http://localhost:8081/api/waitlist" method="POST">
+            <input type="email" name="email" placeholder="octo@sigil-framework.space" required>
+            <button type="submit" class="submit-btn">Initialize Request</button>
+        </form>
+    </div>
+</body>
+</html>
