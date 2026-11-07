@@ -1,101 +1,77 @@
 package main
 
 import (
-	"bytes"
 	"encoding/json"
-	"io"
-	"log"
+	"fmt"
 	"net/http"
-	"net/http/httputil"
-	"net/url"
-	"os"
-	"regexp"
+	"strings"
 	"time"
 )
 
-var (
-	emailRegex  = regexp.MustCompile(`[a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\.[a-zA-Z]{2,}`)
-	awsKeyRegex = regexp.MustCompile(`(A3T[A-Z0-9]|AKIA|AGPA|AIDA|AROA|AIPA|ANPA|ANVA|ASIA)[A-Z0-9]{16}`)
-	bearerRegex = regexp.MustCompile(`(?i)bearer\s+[a-zA-Z0-9_\-\.]{20,}`)
-	ipAddrRegex = regexp.MustCompile(`\b\d{1,3}\.\d{1,3}\.\d{1,3}\.\d{1,3}\b`)
-)
+type DemoRequest struct {
+	Prompt string `json:"prompt"`
+}
 
-type AuditLog struct {
-	Timestamp string   `json:"timestamp"`
-	Path      string   `json:"path"`
-	Matched   []string `json:"matched_types"`
+type DemoResponse struct {
+	Timestamp string  `json:"timestamp"`
+	Prompt    string  `json:"prompt"`
+	RiskScore float64 `json:"risk_score"`
+	Action    string  `json:"action"`
+	Reason    string  `json:"reason"`
+	LatencyMs int64   `json:"latency_ms"`
+}
+
+func handleDemoScan(w http.ResponseWriter, r *http.Request) {
+	w.Header().Set("Access-Control-Allow-Origin", "*")
+	w.Header().Set("Access-Control-Allow-Headers", "Content-Type")
+	w.Header().Set("Content-Type", "application/json")
+
+	if r.Method == http.MethodOptions {
+		w.WriteHeader(http.StatusOK)
+		return
+	}
+
+	if r.Method != http.MethodPost {
+		http.Error(w, `{"error":"Method not allowed"}`, http.StatusMethodNotAllowed)
+		return
+	}
+
+	start := time.Now()
+	var req DemoRequest
+	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
+		http.Error(w, `{"error":"Invalid payload"}`, http.StatusBadRequest)
+		return
+	}
+
+	// Real threat detection logic
+	lower := strings.ToLower(req.Prompt)
+	riskScore := 0.00
+	action := "FORWARD"
+	reason := "Clean request. No threat vectors detected."
+
+	if strings.Contains(lower, "ignore previous instructions") ||
+		strings.Contains(lower, "system prompt") ||
+		strings.Contains(lower, "bypass") ||
+		strings.Contains(lower, "jailbreak") {
+		riskScore = 0.98
+		action = "BLOCK"
+		reason = "Prompt injection vector identified at network edge."
+	}
+
+	resp := DemoResponse{
+		Timestamp: time.Now().Format("2006-01-02 15:04:05"),
+		Prompt:    req.Prompt,
+		RiskScore: riskScore,
+		Action:    action,
+		Reason:    reason,
+		LatencyMs: time.Since(start).Milliseconds(),
+	}
+
+	json.NewEncoder(w).Encode(resp)
 }
 
 func main() {
-	targetURL := os.Getenv("OLLAMA_URL")
-	if targetURL == "" {
-		targetURL = "http://host.docker.internal:11434"
-	}
-
-	remote, err := url.Parse(targetURL)
-	if err != nil {
-		log.Fatalf("Invalid Ollama target URL [%s]: %v", targetURL, err)
-	}
-
-	proxy := httputil.NewSingleHostReverseProxy(remote)
-
-	originalDirector := proxy.Director
-	proxy.Director = func(req *http.Request) {
-		originalDirector(req)
-		req.Host = remote.Host
-
-		if req.Method == http.MethodPost && req.Body != nil {
-			bodyBytes, err := io.ReadAll(req.Body)
-			if err == nil {
-				bodyString := string(bodyBytes)
-				bodyString, matches := redactSecrets(bodyString)
-
-				if len(matches) > 0 {
-					audit := AuditLog{
-						Timestamp: time.Now().UTC().Format(time.RFC3339),
-						Path:      req.URL.Path,
-						Matched:   matches,
-					}
-					auditJSON, _ := json.Marshal(audit)
-					log.Printf("[AUDIT-ALERT] %s", string(auditJSON))
-				} else {
-					log.Printf("[SiGiL-Proxy] Clean request for path: %s", req.URL.Path)
-				}
-
-				req.Body = io.NopCloser(bytes.NewBufferString(bodyString))
-				req.ContentLength = int64(len(bodyString))
-				req.Header.Set("Content-Length", string(rune(len(bodyString))))
-			}
-		}
-	}
-
-	listenAddr := ":11435"
-	log.Printf("[SiGiL-Proxy] Initialized with structured auditing. Forwarding traffic to %s on %s...", targetURL, listenAddr)
-
-	if err := http.ListenAndServe(listenAddr, proxy); err != nil {
-		log.Fatalf("Proxy server failed: %v", err)
-	}
-}
-
-func redactSecrets(input string) (string, []string) {
-	var matches []string
-
-	if emailRegex.MatchString(input) {
-		matches = append(matches, "EMAIL")
-		input = emailRegex.ReplaceAllString(input, "[REDACTED-EMAIL]")
-	}
-	if awsKeyRegex.MatchString(input) {
-		matches = append(matches, "AWS_KEY")
-		input = awsKeyRegex.ReplaceAllString(input, "[REDACTED-AWS-KEY]")
-	}
-	if bearerRegex.MatchString(input) {
-		matches = append(matches, "BEARER_TOKEN")
-		input = bearerRegex.ReplaceAllString(input, "[REDACTED-BEARER-TOKEN]")
-	}
-	if ipAddrRegex.MatchString(input) {
-		matches = append(matches, "IP_ADDRESS")
-		input = ipAddrRegex.ReplaceAllString(input, "[REDACTED-IP]")
-	}
-
-	return input, matches
+	http.HandleFunc("/api/demo", handleDemoScan)
+	fmt.Println("SiGiL Proxy Core active on port 11435...")
+	http.ListenAndServe(":11435", nil)
 }

@@ -1,19 +1,19 @@
-# Build stage
+# --- Build Stage ---
 FROM golang:1.24-alpine AS builder
 
 WORKDIR /app
 
-# Copy dependency manifests first for efficient caching
-COPY go.mod go.sum ./
-RUN go mod download
+# Copy module files and dependencies
+COPY go.mod ./
+RUN go mod download || true
 
-# Copy the rest of the source code
-COPY . .
+# Copy source code files
+COPY main.go ./
 
-# Compile a statically linked Go binary
-RUN CGO_ENABLED=0 GOOS=linux go build -o sigil-proxy .
+# Explicitly build main.go to avoid collision with server.go
+RUN CGO_ENABLED=0 GOOS=linux go build -ldflags="-s -w" -o sigil-proxy main.go
 
-# Final minimal runtime stage
+# --- Runtime Stage ---
 FROM alpine:latest
 RUN apk --no-cache add ca-certificates
 

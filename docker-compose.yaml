@@ -2,12 +2,28 @@ version: '3.8'
 
 services:
   sigil-proxy:
-    build: .
-    container_name: sigil-container
+    build:
+      context: .
+      dockerfile: Dockerfile
+    image: kadehood-404/sigil-proxy:latest
+    container_name: sigil-proxy
     ports:
       - "11435:11435"
     environment:
       - OLLAMA_URL=http://host.docker.internal:11434
-    extra_hosts:
-      - "host.docker.internal:host-gateway"
+    restart: unless-stopped
+
+  sigil-webhook:
+    build:
+      context: .
+      dockerfile: Dockerfile.webhook
+    image: sigil-webhook:latest
+    container_name: sigil-webhook
+    ports:
+      - "8081:8080"
+    environment:
+      - SMTP_HOST=smtp.mailgun.org
+      - SMTP_PORT=587
+      - SMTP_USER=noreply@sigil-framework.space
+      - SMTP_PASS=your-smtp-password
     restart: unless-stopped
