@@ -339,14 +339,16 @@
             </div>
         </div>
 
-        <!-- WAITLIST SECTION -->
+        <!-- WAITLIST SECTION (FORMSPREE LIVE ENDPOINT) -->
         <div class="waitlist-section" id="request-access">
             <h2>Request Enterprise Access</h2>
             <p style="color: var(--muted); font-size: 0.85rem;">Submit your work email for priority onboarding to the enterprise pilot program.</p>
-            <form action="http://localhost:8081/api/waitlist" method="POST">
-                <input type="email" name="email" placeholder="octo@sigil-framework.space" required>
-                <button type="submit" class="submit-btn">Initialize Request</button>
+            
+            <form action="https://formspree.io/f/xnppygkd" method="POST" id="waitlistForm">
+                <input type="email" name="email" id="waitlistEmail" placeholder="octo@sigil-framework.space" required>
+                <button type="submit" class="submit-btn" id="waitlistBtn">Initialize Request</button>
             </form>
+            <div id="waitlistMsg" style="margin-top: 1rem; font-size: 0.85rem;"></div>
         </div>
 
     </div>
@@ -400,6 +402,43 @@
         function escapeHtml(str) {
             return str.replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;");
         }
+
+        // Formspree AJAX Submission
+        const form = document.getElementById("waitlistForm");
+        form.addEventListener("submit", async function(event) {
+            event.preventDefault();
+            const msgDiv = document.getElementById("waitlistMsg");
+            const btn = document.getElementById("waitlistBtn");
+            const data = new FormData(event.target);
+
+            btn.textContent = "Transmitting...";
+            btn.disabled = true;
+
+            try {
+                const response = await fetch(event.target.action, {
+                    method: form.method,
+                    body: data,
+                    headers: { 'Accept': 'application/json' }
+                });
+                
+                if (response.ok) {
+                    msgDiv.innerHTML = `<span style="color: #00ff66;">[SUCCESS] Telemetry handle logged to waitlist.</span>`;
+                    form.reset();
+                } else {
+                    const resData = await response.json();
+                    if (Object.hasOwn(resData, 'errors')) {
+                        msgDiv.innerHTML = `<span style="color: var(--accent);">[ERROR] ${resData["errors"].map(error => error["message"]).join(", ")}</span>`;
+                    } else {
+                        msgDiv.innerHTML = `<span style="color: var(--accent);">[ERROR] Form submission failed.</span>`;
+                    }
+                }
+            } catch (error) {
+                msgDiv.innerHTML = `<span style="color: var(--accent);">[ERROR] Network failure submitting request.</span>`;
+            } finally {
+                btn.textContent = "Initialize Request";
+                btn.disabled = false;
+            }
+        });
     </script>
 </body>
 </html>
